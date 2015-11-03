@@ -52,6 +52,8 @@ namespace SpaceInvaders
         List<Vector2> enemyLasers = new List<Vector2>();
         float timeSincePlayerLaser = PLAYER_LASER_COOLDOWN;
 
+        Random rand = new Random();
+
         bool gameOver = false;
         bool playerWon = false;
 
@@ -221,6 +223,21 @@ namespace SpaceInvaders
 
         private void UpdateEnemies(float delta)
         {
+            // 1% chance of enemy laser fire.
+            if (rand.Next(100) < 1)
+            {
+                int rightMostEnemy = GetRightMostEnemy();
+                int selectedColumn = rand.Next(rightMostEnemy+1);
+                int selectedRow = GetBottomMostEnemyInColumn(selectedColumn);
+
+                Vector2 enemyPosition = enemyGridOffset + new Vector2(
+                    selectedColumn * (enemyTexture.Width + ENEMY_PADDING),
+                    selectedRow * (enemyTexture.Height + ENEMY_PADDING));
+
+                enemyLasers.Add(enemyPosition);
+            }
+
+            // Enemy movement.
             if (timeSinceEnemyMove > ENEMY_MOVE_INTERVAL)
             {
                 int offsetX = enemyTexture.Width + ENEMY_PADDING;
@@ -320,8 +337,18 @@ namespace SpaceInvaders
             temp.Y += 300 * delta;
             enemyLasers[i] = temp;
 
+            // Check if the laser hits the player.
+            Rectangle laserBounds = GetBoundingBox(enemyLasers[i], laserTexture);
+            Rectangle playerBounds = GetBoundingBox(playerPosition, playerTexture);
+            if (laserBounds.Intersects(playerBounds))
+            {
+                gameOver = true;
+                enemyLasers.RemoveAt(i);
+                return;
+            }
+
             // Remove the laser when it reaches the bottom of the screen.
-            if (GetBoundingBox(enemyLasers[i], laserTexture).Top > WINDOW_HEIGHT)
+            if (laserBounds.Top > WINDOW_HEIGHT)
             {
                 enemyLasers.RemoveAt(i);
                 return;
@@ -378,6 +405,21 @@ namespace SpaceInvaders
                 for (int x = 0; x < enemyGrid.GetLength(0); x++)
                     if (enemyGrid[x, y] && y > result)
                         result = y;
+
+            return result;
+        }
+
+
+        /// <summary>
+        /// Get the y index of the bottom-most enemy still alive on the specified column of the grid.
+        /// </summary>
+        private int GetBottomMostEnemyInColumn(int x)
+        {
+            int result = 0;
+
+            for (int y = 0; y < enemyGrid.GetLength(1); y++)
+                if (enemyGrid[x, y] && y > result)
+                    result = y;
 
             return result;
         }
