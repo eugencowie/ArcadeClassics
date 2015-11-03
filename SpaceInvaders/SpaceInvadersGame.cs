@@ -52,6 +52,16 @@ namespace SpaceInvaders
         List<Vector2> enemyLasers = new List<Vector2>();
         float timeSincePlayerLaser = PLAYER_LASER_COOLDOWN;
 
+        // Barriers
+        struct Barrier
+        {
+            public Vector2 Position;
+            public int Health;
+        }
+
+        Texture2D barrierTexture;
+        List<Barrier> barriers = new List<Barrier>();
+
         // Game over
         bool gameOver = false;
         bool playerWon = false;
@@ -82,6 +92,7 @@ namespace SpaceInvaders
             playerTexture = Content.Load<Texture2D>("textures/player");
             enemyTexture = Content.Load<Texture2D>("textures/enemy");
             laserTexture = Content.Load<Texture2D>("textures/laser");
+            barrierTexture = Content.Load<Texture2D>("textures/barrier");
 
             scoreFont = Content.Load<SpriteFont>("fonts/ScoreFont");
             winFont = Content.Load<SpriteFont>("fonts/WinFont");
@@ -93,6 +104,16 @@ namespace SpaceInvaders
             for (int y = 0; y < enemyGrid.GetLength(1); y++)
                 for (int x = 0; x < enemyGrid.GetLength(0); x++)
                     enemyGrid[x, y] = true;
+
+            // Set the initial position of the barriers.
+            int barrierInterval = (WINDOW_WIDTH - 200) / 4;
+            for (int x = barrierInterval; x <= WINDOW_WIDTH - 100; x += barrierInterval)
+            {
+                Barrier barrier = new Barrier();
+                barrier.Position = new Vector2(x, 500);
+                barrier.Health = 100;
+                barriers.Add(barrier);
+            }
         }
 
 
@@ -109,6 +130,7 @@ namespace SpaceInvaders
                 CheckPlayerInput(delta);
                 UpdateEnemies(delta);
                 UpdateLasers(delta);
+                UpdateBarriers(delta);
             }
 
             base.Update(gameTime);
@@ -152,6 +174,16 @@ namespace SpaceInvaders
                 // Draw the enemy lasers.
                 foreach (var laserPosition in enemyLasers)
                     spriteBatch.DrawCentered(laserTexture, laserPosition);
+
+                // Draw the barriers.
+                foreach (var barrier in barriers)
+                {
+                    Color color = Color.LimeGreen;
+                    if (barrier.Health < 66) color = Color.Orange;
+                    if (barrier.Health < 33) color = Color.Red;
+
+                    spriteBatch.DrawCentered(barrierTexture, barrier.Position, color);
+                }
 
                 // Draw the player's score.
                 spriteBatch.DrawString(scoreFont, "Score: " + playerScore, new Vector2(20, 20), Color.White);
@@ -312,6 +344,21 @@ namespace SpaceInvaders
                 return;
             }
 
+            // Check if the laser hits a barrier.
+            for (int j = barriers.Count - 1; j >= 0; j--)
+            {
+                Rectangle barrierBounds = GetBoundingBox(barriers[j].Position, barrierTexture);
+                if (laserBounds.Intersects(barrierBounds))
+                {
+                    var temp2 = barriers[j];
+                    temp2.Health -= 33;
+                    barriers[j] = temp2;
+
+                    playerLasers.RemoveAt(i);
+                    return;
+                }
+            }
+
             // Check if the laser collides with any enemy lasers.
             for (int j = enemyLasers.Count - 1; j >= 0; j--)
             {
@@ -356,8 +403,23 @@ namespace SpaceInvaders
             temp.Y += 300 * delta;
             enemyLasers[i] = temp;
 
-            // Check if the laser hits the player.
+            // Check if the laser hits a barrier.
             Rectangle laserBounds = GetBoundingBox(enemyLasers[i], laserTexture);
+            for (int j = barriers.Count - 1; j >= 0; j--)
+            {
+                Rectangle barrierBounds = GetBoundingBox(barriers[j].Position, barrierTexture);
+                if (laserBounds.Intersects(barrierBounds))
+                {
+                    var temp2 = barriers[j];
+                    temp2.Health -= 33;
+                    barriers[j] = temp2;
+
+                    enemyLasers.RemoveAt(i);
+                    return;
+                }
+            }
+
+            // Check if the laser hits the player.
             Rectangle playerBounds = GetBoundingBox(playerPosition, playerTexture);
             if (laserBounds.Intersects(playerBounds))
             {
@@ -372,6 +434,14 @@ namespace SpaceInvaders
                 enemyLasers.RemoveAt(i);
                 return;
             }
+        }
+
+
+        private void UpdateBarriers(float delta)
+        {
+            for (int i = barriers.Count - 1; i >= 0; i--)
+                if (barriers[i].Health <= 0)
+                    barriers.RemoveAt(i);
         }
 
 
