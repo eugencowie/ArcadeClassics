@@ -312,6 +312,18 @@ namespace SpaceInvaders
                 return;
             }
 
+            // Check if the laser collides with any enemy lasers.
+            for (int j = enemyLasers.Count - 1; j >= 0; j--)
+            {
+                Rectangle enemyLaser = GetBoundingBox(enemyLasers[j], enemyTexture);
+                if (enemyLaser.Intersects(laserBounds))
+                {
+                    enemyLasers.RemoveAt(j);
+                    playerLasers.RemoveAt(i);
+                    return;
+                }
+            }
+
             // Check if the laser collides with any active enemies.
             for (int y = 0; y < enemyGrid.GetLength(1); y++)
             {
