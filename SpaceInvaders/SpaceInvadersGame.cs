@@ -323,7 +323,7 @@ namespace SpaceInvaders
             // Remove the laser when it reaches the bottom of the screen.
             if (GetBoundingBox(enemyLasers[i], laserTexture).Top > WINDOW_HEIGHT)
             {
-                playerLasers.RemoveAt(i);
+                enemyLasers.RemoveAt(i);
                 return;
             }
         }
