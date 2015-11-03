@@ -52,10 +52,11 @@ namespace SpaceInvaders
         List<Vector2> enemyLasers = new List<Vector2>();
         float timeSincePlayerLaser = PLAYER_LASER_COOLDOWN;
 
-        Random rand = new Random();
-
+        // Game over
         bool gameOver = false;
         bool playerWon = false;
+
+        Random rand = new Random();
 
         #endregion
 
@@ -157,12 +158,13 @@ namespace SpaceInvaders
             }
             else
             {
-                spriteBatch.DrawString(winFont, "Game over", new Vector2(20, 20), Color.White);
+                // If the game is over, tell the player whether they won or lost.
+                spriteBatch.DrawString(winFont, "Game over with a score of " + playerScore, new Vector2(20, 20), Color.White);
 
                 if (playerWon)
-                    spriteBatch.DrawString(winFont, "You won!", new Vector2(20, 60), Color.White);
+                    spriteBatch.DrawString(winFont, "You won the game ^_^", new Vector2(20, 60), Color.White);
                 else
-                    spriteBatch.DrawString(winFont, "You lost", new Vector2(20, 60), Color.White);
+                    spriteBatch.DrawString(winFont, "You died :(", new Vector2(20, 60), Color.White);
             }
 
             spriteBatch.End();
@@ -226,18 +228,21 @@ namespace SpaceInvaders
             // 1% chance of enemy laser fire.
             if (rand.Next(100) < 1)
             {
+                // Randomly select a column (x axis).
                 int rightMostEnemy = GetRightMostEnemy();
-                int selectedColumn = rand.Next(rightMostEnemy+1);
-                int selectedRow = GetBottomMostEnemyInColumn(selectedColumn);
+                int selectedPosX = rand.Next(rightMostEnemy+1);
+
+                // Get the lowest enemy in that column.
+                int selectedPosY = GetBottomMostEnemyInColumn(selectedPosX);
 
                 Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                    selectedColumn * (enemyTexture.Width + ENEMY_PADDING),
-                    selectedRow * (enemyTexture.Height + ENEMY_PADDING));
+                    selectedPosX * (enemyTexture.Width + ENEMY_PADDING),
+                    selectedPosY * (enemyTexture.Height + ENEMY_PADDING));
 
                 enemyLasers.Add(enemyPosition);
             }
 
-            // Enemy movement.
+            // Enemies should move once every $ENEMY_MOVE_INTERVAL seconds.
             if (timeSinceEnemyMove > ENEMY_MOVE_INTERVAL)
             {
                 int offsetX = enemyTexture.Width + ENEMY_PADDING;
@@ -282,9 +287,11 @@ namespace SpaceInvaders
 
         private void UpdateLasers(float delta)
         {
+            // Update each player laser.
             for (int i = playerLasers.Count - 1; i >= 0; i--)
                 UpdatePlayerLaser(delta, i);
 
+            // Update each enemy laser.
             for (int i = enemyLasers.Count - 1; i >= 0; i--)
                 UpdateEnemyLaser(delta, i);
         }
@@ -305,7 +312,7 @@ namespace SpaceInvaders
                 return;
             }
 
-            // Check if the laser collides with any enemies.
+            // Check if the laser collides with any active enemies.
             for (int y = 0; y < enemyGrid.GetLength(1); y++)
             {
                 for (int x = 0; x < enemyGrid.GetLength(0); x++)
