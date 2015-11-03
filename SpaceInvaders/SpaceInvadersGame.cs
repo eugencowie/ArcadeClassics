@@ -282,6 +282,7 @@ namespace SpaceInvaders
 
                 if (nextEnemyMovement == EnemyMovement.Down)
                 {
+                    // Move enemies on the y axis.
                     enemyGridOffset.Y += offsetY;
 
                     // Check if the grid has reached the left side of the screen.
@@ -307,8 +308,6 @@ namespace SpaceInvaders
                     if (leftMostPosition < Math.Abs(offsetX*2) || rightMostPosition > WINDOW_WIDTH - Math.Abs(offsetX*2))
                         nextEnemyMovement = EnemyMovement.Down;
                 }
-
-                // Move enemies on the y axis.
 
                 timeSinceEnemyMove = 0;
             }
@@ -440,8 +439,34 @@ namespace SpaceInvaders
         private void UpdateBarriers(float delta)
         {
             for (int i = barriers.Count - 1; i >= 0; i--)
+            {
+                // Check if any of the enemies are colliding with the barrier.
+                Rectangle barrierBounds = GetBoundingBox(barriers[i].Position, barrierTexture);
+                for (int y = 0; y < enemyGrid.GetLength(1); y++)
+                {
+                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
+                    {
+                        if (enemyGrid[x, y])
+                        {
+                            Vector2 enemyPosition = enemyGridOffset + new Vector2(
+                                x * (enemyTexture.Width + ENEMY_PADDING),
+                                y * (enemyTexture.Height + ENEMY_PADDING));
+
+                            Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
+                            if (barrierBounds.Intersects(enemyBounds))
+                            {
+                                var temp = barriers[i];
+                                temp.Health = 0;
+                                barriers[i] = temp;
+                            }
+                        }
+                    }
+                }
+
+                // Destroy the barrier if its health reaches zero.
                 if (barriers[i].Health <= 0)
                     barriers.RemoveAt(i);
+            }
         }
 
 
