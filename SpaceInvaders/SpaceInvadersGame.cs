@@ -35,13 +35,13 @@ namespace SpaceInvaders
         // Player
         Texture2D playerTexture;
         Vector2 playerPosition;
-        int playerScore = 0;
+        int playerScore;
 
         // Enemies
         Texture2D enemyTexture;
         Vector2 enemyGridOffset = new Vector2(50, 50);
         bool[,] enemyGrid = new bool[10, 5];
-        float timeSinceEnemyMove = 0;
+        float timeSinceEnemyMove;
 
         enum EnemyMovement { Left, Down, Right }
         EnemyMovement nextEnemyMovement = EnemyMovement.Right;
@@ -63,8 +63,8 @@ namespace SpaceInvaders
         List<Barrier> barriers = new List<Barrier>();
 
         // Game over
-        bool gameOver = false;
-        bool playerWon = false;
+        bool gameOver;
+        bool playerWon;
 
         Random rand = new Random();
 
@@ -106,12 +106,13 @@ namespace SpaceInvaders
                     enemyGrid[x, y] = true;
 
             // Set the initial position of the barriers.
-            int barrierInterval = (WINDOW_WIDTH - 200) / 4;
+            const int barrierInterval = (WINDOW_WIDTH - 200) / 4;
             for (int x = barrierInterval; x <= WINDOW_WIDTH - 100; x += barrierInterval)
             {
-                Barrier barrier = new Barrier();
+                var barrier = new Barrier();
                 barrier.Position = new Vector2(x, 500);
                 barrier.Health = 100;
+
                 barriers.Add(barrier);
             }
         }
@@ -122,7 +123,7 @@ namespace SpaceInvaders
             float delta = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             if (Keyboard.GetState().IsKeyDown(Keys.Escape))
-                this.Exit();
+                Exit();
 
             if (!gameOver)
             {
@@ -156,14 +157,14 @@ namespace SpaceInvaders
                 {
                     for (int x = 0; x < enemyGrid.GetLength(0); x++)
                     {
-                        if (enemyGrid[x, y])
-                        {
-                            Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                                x * (enemyTexture.Width + ENEMY_PADDING),
-                                y * (enemyTexture.Height + ENEMY_PADDING));
+                        if (!enemyGrid[x, y])
+                            continue;
 
-                            spriteBatch.DrawCentered(enemyTexture, enemyPosition, Color.LimeGreen);
-                        }
+                        Vector2 enemyPosition = enemyGridOffset + new Vector2(
+                            x * (enemyTexture.Width + ENEMY_PADDING),
+                            y * (enemyTexture.Height + ENEMY_PADDING));
+
+                        spriteBatch.DrawCentered(enemyTexture, enemyPosition, Color.LimeGreen);
                     }
                 }
 
@@ -191,12 +192,10 @@ namespace SpaceInvaders
             else
             {
                 // If the game is over, tell the player whether they won or lost.
-                spriteBatch.DrawString(winFont, "Game over with a score of " + playerScore, new Vector2(20, 20), Color.White);
+                spriteBatch.DrawString(winFont, string.Format("Game over with a score of {0}.", playerScore), new Vector2(20, 20), Color.White);
 
-                if (playerWon)
-                    spriteBatch.DrawString(winFont, "You won the game ^_^", new Vector2(20, 60), Color.White);
-                else
-                    spriteBatch.DrawString(winFont, "You died :(", new Vector2(20, 60), Color.White);
+                string text = (playerWon ? "You won the game!" : "You died :(");
+                spriteBatch.DrawString(winFont, text, new Vector2(20, 60), Color.White);
             }
 
             spriteBatch.End();
@@ -287,7 +286,7 @@ namespace SpaceInvaders
 
                     // Check if the grid has reached the left side of the screen.
                     float leftMostPosition = enemyGridOffset.X + (GetLeftMostEnemy() * (enemyTexture.Width + ENEMY_PADDING));
-                    if (enemyGridOffset.X < Math.Abs(offsetX*2))
+                    if (leftMostPosition < Math.Abs(offsetX*2))
                         nextEnemyMovement = EnemyMovement.Right;
 
                     // Check if the grid has reached the right side of the screen.
@@ -349,7 +348,7 @@ namespace SpaceInvaders
                 Rectangle barrierBounds = GetBoundingBox(barriers[j].Position, barrierTexture);
                 if (laserBounds.Intersects(barrierBounds))
                 {
-                    var temp2 = barriers[j];
+                    Barrier temp2 = barriers[j];
                     temp2.Health -= 33;
                     barriers[j] = temp2;
 
@@ -375,20 +374,20 @@ namespace SpaceInvaders
             {
                 for (int x = 0; x < enemyGrid.GetLength(0); x++)
                 {
-                    if (enemyGrid[x, y])
-                    {
-                        Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                            x * (enemyTexture.Width + ENEMY_PADDING),
-                            y * (enemyTexture.Height + ENEMY_PADDING));
+                    if (!enemyGrid[x, y])
+                        continue;
 
-                        Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
-                        if (laserBounds.Intersects(enemyBounds))
-                        {
-                            enemyGrid[x, y] = false;
-                            playerLasers.RemoveAt(i);
-                            playerScore += 10;
-                            return;
-                        }
+                    Vector2 enemyPosition = enemyGridOffset + new Vector2(
+                        x * (enemyTexture.Width + ENEMY_PADDING),
+                        y * (enemyTexture.Height + ENEMY_PADDING));
+
+                    Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
+                    if (laserBounds.Intersects(enemyBounds))
+                    {
+                        enemyGrid[x, y] = false;
+                        playerLasers.RemoveAt(i);
+                        playerScore += 10;
+                        return;
                     }
                 }
             }
@@ -398,7 +397,7 @@ namespace SpaceInvaders
         private void UpdateEnemyLaser(float delta, int i)
         {
             // Enemy lasers move downwards.
-            var temp = enemyLasers[i];
+            Vector2 temp = enemyLasers[i];
             temp.Y += 300 * delta;
             enemyLasers[i] = temp;
 
@@ -409,7 +408,7 @@ namespace SpaceInvaders
                 Rectangle barrierBounds = GetBoundingBox(barriers[j].Position, barrierTexture);
                 if (laserBounds.Intersects(barrierBounds))
                 {
-                    var temp2 = barriers[j];
+                    Barrier temp2 = barriers[j];
                     temp2.Health -= 33;
                     barriers[j] = temp2;
 
@@ -446,19 +445,19 @@ namespace SpaceInvaders
                 {
                     for (int x = 0; x < enemyGrid.GetLength(0); x++)
                     {
-                        if (enemyGrid[x, y])
-                        {
-                            Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                                x * (enemyTexture.Width + ENEMY_PADDING),
-                                y * (enemyTexture.Height + ENEMY_PADDING));
+                        if (!enemyGrid[x, y])
+                            continue;
 
-                            Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
-                            if (barrierBounds.Intersects(enemyBounds))
-                            {
-                                var temp = barriers[i];
-                                temp.Health = 0;
-                                barriers[i] = temp;
-                            }
+                        Vector2 enemyPosition = enemyGridOffset + new Vector2(
+                            x * (enemyTexture.Width + ENEMY_PADDING),
+                            y * (enemyTexture.Height + ENEMY_PADDING));
+
+                        Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
+                        if (barrierBounds.Intersects(enemyBounds))
+                        {
+                            Barrier temp = barriers[i];
+                            temp.Health = 0;
+                            barriers[i] = temp;
                         }
                     }
                 }
@@ -566,7 +565,7 @@ namespace SpaceInvaders
                 texture,
                 position,
                 null,
-                (color.HasValue ? color.Value : Color.White),
+                color ?? Color.White,
                 0f,
                 new Vector2(texture.Width / 2f, texture.Height / 2f),
                 1f,
