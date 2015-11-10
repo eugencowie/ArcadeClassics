@@ -256,24 +256,9 @@ namespace SpaceInvaders
 
         private void UpdateEnemies(float delta)
         {
-            // 1% chance of enemy laser fire.
-            if (rand.Next(100) < 1)
-            {
-                // Randomly select a column (x axis).
-                int rightMostEnemy = GetRightMostEnemy();
-                int selectedPosX = rand.Next(rightMostEnemy+1);
+            timeSinceEnemyMove += delta;
 
-                // Get the lowest enemy in that column.
-                int selectedPosY = GetBottomMostEnemyInColumn(selectedPosX);
-
-                Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                    selectedPosX * (enemyTexture.Width + ENEMY_PADDING),
-                    selectedPosY * (enemyTexture.Height + ENEMY_PADDING));
-
-                enemyLasers.Add(enemyPosition);
-            }
-
-            // Enemies should move once every $ENEMY_MOVE_INTERVAL seconds.
+            // Enemies should move once every ENEMY_MOVE_INTERVAL seconds.
             if (timeSinceEnemyMove > ENEMY_MOVE_INTERVAL)
             {
                 int offsetX = enemyTexture.Width + ENEMY_PADDING;
@@ -311,7 +296,46 @@ namespace SpaceInvaders
                 timeSinceEnemyMove = 0;
             }
 
-            timeSinceEnemyMove += delta;
+            // 1% chance of enemy laser fire.
+            if (rand.Next(100) < 1)
+            {
+                // Get total alive enemies.
+                int aliveEnemies = 0;
+                for (int y = 0; y < enemyGrid.GetLength(1); y++)
+                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
+                        if (enemyGrid[x, y])
+                            aliveEnemies++;
+
+                // Randomly select an enemy.
+                int selectedEnemy = rand.Next(aliveEnemies + 1);
+
+                // Get selected enemy grid place.
+                int selectedX = 0;
+                int selectedY = 0;
+                int index = 0;
+                for (int y = 0; y < enemyGrid.GetLength(1); y++)
+                {
+                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
+                    {
+                        if (enemyGrid[x, y])
+                        {
+                            if (selectedEnemy == index)
+                            {
+                                selectedX = x;
+                                selectedY = y;
+                            }
+
+                            index++;
+                        }
+                    }
+                }
+
+                Vector2 enemyPosition = enemyGridOffset + new Vector2(
+                    selectedX * (enemyTexture.Width + ENEMY_PADDING),
+                    selectedY * (enemyTexture.Height + ENEMY_PADDING));
+
+                enemyLasers.Add(enemyPosition);
+            }
         }
 
 
