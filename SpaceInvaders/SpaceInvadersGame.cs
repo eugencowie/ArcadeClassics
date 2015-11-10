@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -8,7 +9,7 @@ namespace SpaceInvaders
 {
     public class SpaceInvadersGame : Game
     {
-        #region Variables
+        #region Constants
 
         // Width and height of the window.
         const int WINDOW_WIDTH = 800;
@@ -23,24 +24,26 @@ namespace SpaceInvaders
         // Time (in seconds) before the player can fire another laser.
         const float PLAYER_LASER_COOLDOWN = 0.5f;
 
+        #endregion
+        #region Variables
+
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
+        // Fonts/sounds
         SpriteFont scoreFont;
         SpriteFont winFont;
+        SoundEffect laserHitSound;
 
         // Background
         Texture2D backgroundTexture;
 
         // Player
-        Texture2D playerTexture;
-        Vector2 playerPosition;
+        Sprite player;
         int playerScore;
 
         // Enemies
-        Texture2D enemyTexture;
-        Vector2 enemyGridOffset = new Vector2(50, 50);
-        bool[,] enemyGrid = new bool[10, 5];
+        List<Sprite> enemies = new List<Sprite>();
         float timeSinceEnemyMove;
 
         enum EnemyMovement { Left, Down, Right }
@@ -48,18 +51,14 @@ namespace SpaceInvaders
 
         // Lasers
         Texture2D laserTexture;
-        List<Vector2> playerLasers = new List<Vector2>();
-        List<Vector2> enemyLasers = new List<Vector2>();
+        List<Sprite> playerLasers = new List<Sprite>();
+        List<Sprite> enemyLasers = new List<Sprite>();
         float timeSincePlayerLaser = PLAYER_LASER_COOLDOWN;
 
         // Barriers
-        struct Barrier
-        {
-            public Vector2 Position;
+        class Barrier : Sprite {
             public int Health;
         }
-
-        Texture2D barrierTexture;
         List<Barrier> barriers = new List<Barrier>();
 
         // Game over
@@ -87,31 +86,47 @@ namespace SpaceInvaders
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            // Load the content.
-            backgroundTexture = Content.Load<Texture2D>("textures/background");
-            playerTexture = Content.Load<Texture2D>("textures/player");
-            enemyTexture = Content.Load<Texture2D>("textures/enemy");
-            laserTexture = Content.Load<Texture2D>("textures/laser");
-            barrierTexture = Content.Load<Texture2D>("textures/barrier");
-
+            // Load the fonts and sound effects.
             scoreFont = Content.Load<SpriteFont>("fonts/ScoreFont");
             winFont = Content.Load<SpriteFont>("fonts/WinFont");
+//          laserHitSound = Content.Load<SoundEffect>("audio/LaserHit");
 
-            // Set the initial position of the player.
-            playerPosition = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT - 40f);
+            // Load the background texture.
+            backgroundTexture = Content.Load<Texture2D>("textures/background");
+            
+            // Create the player, horizontally centered and 40 pixels above the bottom of the screen.
+            var playerTexture = Content.Load<Texture2D>("textures/player");
+            var playerPosition = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT - 40);
+            player = new Sprite(playerTexture, playerPosition);
 
-            // Set all enemies to be active.
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    enemyGrid[x, y] = true;
+            // Create the enemies in a 10x5 grid.
+            var enemyTexture = Content.Load<Texture2D>("textures/enemy");
+            for (int y = 0; y < 5; y++)
+            {
+                for (int x = 0; x < 10; x++)
+                {
+                    var offset = new Vector2(50, 50);
+                    var enemyPosition = offset + new Vector2(
+                        x * (enemyTexture.Width + ENEMY_PADDING),
+                        y * (enemyTexture.Height + ENEMY_PADDING));
 
-            // Set the initial position of the barriers.
+                    enemies.Add(new Sprite(enemyTexture, enemyPosition));
+                }
+            }
+
+            // Load the laser texture to use later when we create lasers.
+            laserTexture = Content.Load<Texture2D>("textures/laser");
+
+            // Create four equidistant barriers.
+            var barrierTexture = Content.Load<Texture2D>("textures/barrier");
             const int barrierInterval = (WINDOW_WIDTH - 200) / 4;
             for (int x = barrierInterval; x <= WINDOW_WIDTH - 100; x += barrierInterval)
             {
                 var barrier = new Barrier();
+                barrier.Texture = barrierTexture;
                 barrier.Position = new Vector2(x, 500);
                 barrier.Health = 100;
+                barrier.Alive = true;
 
                 barriers.Add(barrier);
             }
@@ -128,10 +143,31 @@ namespace SpaceInvaders
             if (!gameOver)
             {
                 CheckGameOver(delta);
+
                 CheckPlayerInput(delta);
+
                 UpdateEnemies(delta);
-                UpdateLasers(delta);
-                UpdateBarriers(delta);
+
+                foreach (var laser in playerLasers)
+                    if (laser.Alive)
+                        UpdatePlayerLaser(delta, laser);
+
+                foreach (var laser in enemyLasers)
+                    if (laser.Alive)
+                        UpdateEnemyLaser(delta, laser);
+
+                foreach (var barrier in barriers)
+                    if (barrier.Alive)
+                        UpdateBarrier(delta, barrier);
+
+                // Remove any entities which have been marked as dead.
+                enemies.PruneDead();
+                playerLasers.PruneDead();
+                enemyLasers.PruneDead();
+
+                for (int i = barriers.Count - 1; i >= 0; i--)
+                    if (!barriers[i].Alive)
+                        barriers.RemoveAt(i);
             }
 
             base.Update(gameTime);
@@ -150,31 +186,19 @@ namespace SpaceInvaders
                 spriteBatch.Draw(backgroundTexture, new Rectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT), Color.White);
 
                 // Draw the player.
-                spriteBatch.DrawCentered(playerTexture, playerPosition);
+                player.Draw(spriteBatch);
 
                 // Draw the enemies.
-                for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                {
-                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    {
-                        if (!enemyGrid[x, y])
-                            continue;
-
-                        Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                            x * (enemyTexture.Width + ENEMY_PADDING),
-                            y * (enemyTexture.Height + ENEMY_PADDING));
-
-                        spriteBatch.DrawCentered(enemyTexture, enemyPosition, Color.LimeGreen);
-                    }
-                }
+                foreach (var enemy in enemies)
+                    enemy.Draw(spriteBatch, Color.LimeGreen);
 
                 // Draw the player lasers.
-                foreach (var laserPosition in playerLasers)
-                    spriteBatch.DrawCentered(laserTexture, laserPosition);
+                foreach (var laser in playerLasers)
+                    laser.Draw(spriteBatch);
 
                 // Draw the enemy lasers.
-                foreach (var laserPosition in enemyLasers)
-                    spriteBatch.DrawCentered(laserTexture, laserPosition);
+                foreach (var laser in enemyLasers)
+                    laser.Draw(spriteBatch);
 
                 // Draw the barriers.
                 foreach (var barrier in barriers)
@@ -183,7 +207,7 @@ namespace SpaceInvaders
                     if (barrier.Health < 66) color = Color.Orange;
                     if (barrier.Health < 33) color = Color.Red;
 
-                    spriteBatch.DrawCentered(barrierTexture, barrier.Position, color);
+                    barrier.Draw(spriteBatch, color);
                 }
 
                 // Draw the player's score.
@@ -210,21 +234,14 @@ namespace SpaceInvaders
         private void CheckGameOver(float delta)
         {
             // Check if all enemies have been destroyed.
-            bool clearedAllEnemies = true;
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    if (enemyGrid[x, y])
-                        clearedAllEnemies = false;
-
-            if (clearedAllEnemies)
+            if (enemies.Count == 0)
             {
                 gameOver = true;
                 playerWon = true;
             }
 
             // Check if the lowest line of enemies have reached the player.
-            float bottomMostPosition = enemyGridOffset.Y + (GetBottomMostEnemy() * (enemyTexture.Height + ENEMY_PADDING));
-            if (bottomMostPosition + ENEMY_PADDING > playerPosition.Y)
+            if (GetBottomMostEnemy().Bounds.Bottom > player.Bounds.Top)
                 gameOver = true;
         }
 
@@ -233,20 +250,20 @@ namespace SpaceInvaders
         {
             KeyboardState keyboard = Keyboard.GetState();
 
-            Rectangle playerBounds = GetBoundingBox(playerPosition, playerTexture);
-
             // Check if the player wants to move left.
-            if (keyboard.IsKeyDown(Keys.Left) && playerBounds.Left > 0)
-                playerPosition.X -= 300 * delta;
+            if (keyboard.IsKeyDown(Keys.Left) && player.Bounds.Left > 0)
+                player.Position.X -= 300 * delta;
 
             // Check if the player wants to move right.
-            if (keyboard.IsKeyDown(Keys.Right) && playerBounds.Right < WINDOW_WIDTH)
-                playerPosition.X += 300 * delta;
+            if (keyboard.IsKeyDown(Keys.Right) && player.Bounds.Right < WINDOW_WIDTH)
+                player.Position.X += 300 * delta;
 
             // Check if the player wants to fire a laser.
             if (keyboard.IsKeyDown(Keys.Space) && timeSincePlayerLaser > PLAYER_LASER_COOLDOWN)
             {
-                playerLasers.Add(playerPosition + new Vector2(0, -laserTexture.Height));
+                var laserPosition = player.Position + new Vector2(0, -laserTexture.Height);
+                playerLasers.Add(new Sprite(laserTexture, laserPosition));
+
                 timeSincePlayerLaser = 0;
             }
 
@@ -256,40 +273,44 @@ namespace SpaceInvaders
 
         private void UpdateEnemies(float delta)
         {
+            // Return if there are no enemies to update.
+            if (enemies.Count == 0)
+                return;
+
             timeSinceEnemyMove += delta;
 
             // Enemies should move once every ENEMY_MOVE_INTERVAL seconds.
             if (timeSinceEnemyMove > ENEMY_MOVE_INTERVAL)
             {
-                int offsetX = enemyTexture.Width + ENEMY_PADDING;
-                int offsetY = enemyTexture.Height + ENEMY_PADDING;
+                int moveX = enemies[0].Texture.Width + ENEMY_PADDING;
+                int moveY = enemies[0].Texture.Height + ENEMY_PADDING;
 
                 if (nextEnemyMovement == EnemyMovement.Down)
                 {
                     // Move enemies on the y axis.
-                    enemyGridOffset.Y += offsetY;
+                    foreach (var enemy in enemies)
+                            enemy.Position.Y += moveY;
 
                     // Check if the grid has reached the left side of the screen.
-                    float leftMostPosition = enemyGridOffset.X + (GetLeftMostEnemy() * (enemyTexture.Width + ENEMY_PADDING));
-                    if (leftMostPosition < Math.Abs(offsetX*2))
+                    if (GetLeftMostEnemy().Position.X < Math.Abs(moveX * 2))
                         nextEnemyMovement = EnemyMovement.Right;
 
                     // Check if the grid has reached the right side of the screen.
-                    float rightMostPosition = enemyGridOffset.X + (GetRightMostEnemy() * (enemyTexture.Width + ENEMY_PADDING));
-                    if (rightMostPosition > WINDOW_WIDTH - Math.Abs(offsetX*2))
+                    if (GetRightMostEnemy().Position.X > WINDOW_WIDTH - Math.Abs(moveX * 2))
                         nextEnemyMovement = EnemyMovement.Left;
                 }
                 else
                 {
-                    // Move enemies on the x axis.
+                    // Flip 
                     if (nextEnemyMovement == EnemyMovement.Left)
-                        offsetX *= -1;
-                    enemyGridOffset.X += offsetX;
+                        moveX *= -1;
+
+                    // Move enemies on the x axis.
+                    foreach (var enemy in enemies)
+                        enemy.Position.X += moveX;
 
                     // Check if the grid has reached the left or right side of the screen.
-                    float leftMostPosition = enemyGridOffset.X + (GetLeftMostEnemy() * (enemyTexture.Width + ENEMY_PADDING));
-                    float rightMostPosition = enemyGridOffset.X + (GetRightMostEnemy() * (enemyTexture.Width + ENEMY_PADDING));
-                    if (leftMostPosition < Math.Abs(offsetX*2) || rightMostPosition > WINDOW_WIDTH - Math.Abs(offsetX*2))
+                    if (GetLeftMostEnemy().Position.X < Math.Abs(moveX * 2) || GetRightMostEnemy().Position.X > WINDOW_WIDTH - Math.Abs(moveX * 2))
                         nextEnemyMovement = EnemyMovement.Down;
                 }
 
@@ -299,196 +320,118 @@ namespace SpaceInvaders
             // 1% chance of enemy laser fire.
             if (rand.Next(100) < 1)
             {
-                // Get total alive enemies.
-                int aliveEnemies = 0;
-                for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                        if (enemyGrid[x, y])
-                            aliveEnemies++;
+                // Randomly select an enemy and take their position on the X axis.
+                int selectedColumn = (int)enemies[rand.Next(enemies.Count)].Position.X;
 
-                // Randomly select an enemy.
-                int selectedEnemy = rand.Next(aliveEnemies + 1);
+                // Get the bottom-most enemy in that column.
+                Sprite selectedEnemy = GetBottomMostEnemyInColumn(selectedColumn);
 
-                // Get selected enemy grid place.
-                int selectedX = 0;
-                int selectedY = 0;
-                int index = 0;
-                for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                {
-                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    {
-                        if (enemyGrid[x, y])
-                        {
-                            if (selectedEnemy == index)
-                            {
-                                selectedX = x;
-                                selectedY = y;
-                            }
-
-                            index++;
-                        }
-                    }
-                }
-
-                Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                    selectedX * (enemyTexture.Width + ENEMY_PADDING),
-                    selectedY * (enemyTexture.Height + ENEMY_PADDING));
-
-                enemyLasers.Add(enemyPosition);
+                // Create a laser.
+                enemyLasers.Add(new Sprite(laserTexture, selectedEnemy.Position));
             }
         }
 
 
-        private void UpdateLasers(float delta)
-        {
-            // Update each player laser.
-            for (int i = playerLasers.Count - 1; i >= 0; i--)
-                UpdatePlayerLaser(delta, i);
-
-            // Update each enemy laser.
-            for (int i = enemyLasers.Count - 1; i >= 0; i--)
-                UpdateEnemyLaser(delta, i);
-        }
-
-
-        private void UpdatePlayerLaser(float delta, int i)
+        private void UpdatePlayerLaser(float delta, Sprite playerLaser)
         {
             // Player lasers move upwards.
-            Vector2 temp = playerLasers[i];
-            temp.Y -= 300 * delta;
-            playerLasers[i] = temp;
+            playerLaser.Position.Y -= 300 * delta;
 
             // Remove the laser when it reaches the top of the screen.
-            Rectangle laserBounds = GetBoundingBox(playerLasers[i], laserTexture);
-            if (laserBounds.Bottom < 0)
+            if (playerLaser.Bounds.Bottom < 0)
             {
-                playerLasers.RemoveAt(i);
+                playerLaser.Alive = false;
                 return;
             }
 
             // Check if the laser hits a barrier.
-            for (int j = barriers.Count - 1; j >= 0; j--)
+            foreach (var barrier in barriers)
             {
-                Rectangle barrierBounds = GetBoundingBox(barriers[j].Position, barrierTexture);
-                if (laserBounds.Intersects(barrierBounds))
+                if (playerLaser.Bounds.Intersects(barrier.Bounds))
                 {
-                    Barrier temp2 = barriers[j];
-                    temp2.Health -= 33;
-                    barriers[j] = temp2;
+                    barrier.Health -= 33;
 
-                    playerLasers.RemoveAt(i);
+                    playerLaser.Alive = false;
                     return;
                 }
             }
 
             // Check if the laser collides with any enemy lasers.
-            for (int j = enemyLasers.Count - 1; j >= 0; j--)
+            foreach (var enemyLaser in enemyLasers)
             {
-                Rectangle enemyLaser = GetBoundingBox(enemyLasers[j], enemyTexture);
-                if (enemyLaser.Intersects(laserBounds))
+                if (playerLaser.Bounds.Intersects(enemyLaser.Bounds))
                 {
-                    enemyLasers.RemoveAt(j);
-                    playerLasers.RemoveAt(i);
+                    enemyLaser.Alive = false;
+
+                    playerLaser.Alive = false;
                     return;
                 }
             }
 
             // Check if the laser collides with any active enemies.
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
+            foreach (var enemy in enemies)
             {
-                for (int x = 0; x < enemyGrid.GetLength(0); x++)
+                if (playerLaser.Bounds.Intersects(enemy.Bounds))
                 {
-                    if (!enemyGrid[x, y])
-                        continue;
+                    enemy.Alive = false;
+                    playerScore += 10;
 
-                    Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                        x * (enemyTexture.Width + ENEMY_PADDING),
-                        y * (enemyTexture.Height + ENEMY_PADDING));
-
-                    Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
-                    if (laserBounds.Intersects(enemyBounds))
-                    {
-                        enemyGrid[x, y] = false;
-                        playerLasers.RemoveAt(i);
-                        playerScore += 10;
-                        return;
-                    }
+                    playerLaser.Alive = false;
+                    return;
                 }
             }
         }
 
 
-        private void UpdateEnemyLaser(float delta, int i)
+        private void UpdateEnemyLaser(float delta, Sprite enemyLaser)
         {
             // Enemy lasers move downwards.
-            Vector2 temp = enemyLasers[i];
-            temp.Y += 300 * delta;
-            enemyLasers[i] = temp;
+            enemyLaser.Position.Y += 300 * delta;
 
             // Check if the laser hits a barrier.
-            Rectangle laserBounds = GetBoundingBox(enemyLasers[i], laserTexture);
-            for (int j = barriers.Count - 1; j >= 0; j--)
+            foreach (var barrier in barriers)
             {
-                Rectangle barrierBounds = GetBoundingBox(barriers[j].Position, barrierTexture);
-                if (laserBounds.Intersects(barrierBounds))
+                if (enemyLaser.Bounds.Intersects(barrier.Bounds))
                 {
-                    Barrier temp2 = barriers[j];
-                    temp2.Health -= 33;
-                    barriers[j] = temp2;
+                    barrier.Health -= 33;
 
-                    enemyLasers.RemoveAt(i);
+                    enemyLaser.Alive = false;
                     return;
                 }
             }
 
             // Check if the laser hits the player.
-            Rectangle playerBounds = GetBoundingBox(playerPosition, playerTexture);
-            if (laserBounds.Intersects(playerBounds))
+            if (enemyLaser.Bounds.Intersects(player.Bounds))
             {
+                player.Alive = false;
                 gameOver = true;
-                enemyLasers.RemoveAt(i);
+
+                enemyLaser.Alive = false;
                 return;
             }
 
             // Remove the laser when it reaches the bottom of the screen.
-            if (laserBounds.Top > WINDOW_HEIGHT)
+            if (enemyLaser.Bounds.Top > WINDOW_HEIGHT)
             {
-                enemyLasers.RemoveAt(i);
+                enemyLaser.Alive = false;
                 return;
             }
         }
 
 
-        private void UpdateBarriers(float delta)
+        private void UpdateBarrier(float delta, Barrier barrier)
         {
-            for (int i = barriers.Count - 1; i >= 0; i--)
-            {
-                // Check if any of the enemies are colliding with the barrier.
-                Rectangle barrierBounds = GetBoundingBox(barriers[i].Position, barrierTexture);
-                for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                {
-                    for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    {
-                        if (!enemyGrid[x, y])
-                            continue;
+            if (barrier.Health <= 0)
+                barrier.Alive = false;
 
-                        Vector2 enemyPosition = enemyGridOffset + new Vector2(
-                            x * (enemyTexture.Width + ENEMY_PADDING),
-                            y * (enemyTexture.Height + ENEMY_PADDING));
+           // Check if any of the enemies are colliding with the barrier.
+           foreach (var enemy in enemies)
+           {
+               if (!enemy.Alive)
+                   continue;
 
-                        Rectangle enemyBounds = GetBoundingBox(enemyPosition, enemyTexture);
-                        if (barrierBounds.Intersects(enemyBounds))
-                        {
-                            Barrier temp = barriers[i];
-                            temp.Health = 0;
-                            barriers[i] = temp;
-                        }
-                    }
-                }
-
-                // Destroy the barrier if its health reaches zero.
-                if (barriers[i].Health <= 0)
-                    barriers.RemoveAt(i);
+                if (barrier.Bounds.Intersects(enemy.Bounds))
+                    barrier.Health = 0;
             }
         }
 
@@ -502,14 +445,15 @@ namespace SpaceInvaders
         /// <summary>
         /// Get the x index of the left-most enemy still alive on the grid.
         /// </summary>
-        private int GetLeftMostEnemy()
+        private Sprite GetLeftMostEnemy()
         {
-            int result = enemyGrid.GetLength(0) - 1;
+            Sprite result = null;
 
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    if (enemyGrid[x, y] && x < result)
-                        result = x;
+            foreach (var enemy in enemies)
+            {
+                if (result == null || enemy.Position.X < result.Position.X)
+                    result = enemy;
+            }
 
             return result;
         }
@@ -518,14 +462,15 @@ namespace SpaceInvaders
         /// <summary>
         /// Get the x index of the right-most enemy still alive on the grid.
         /// </summary>
-        private int GetRightMostEnemy()
+        private Sprite GetRightMostEnemy()
         {
-            int result = 0;
+            Sprite result = null;
 
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    if (enemyGrid[x, y] && x > result)
-                        result = x;
+            foreach (var enemy in enemies)
+            {
+                if (result == null || enemy.Position.X > result.Position.X)
+                    result = enemy;
+            }
 
             return result;
         }
@@ -534,14 +479,15 @@ namespace SpaceInvaders
         /// <summary>
         /// Get the y index of the bottom-most enemy still alive on the grid.
         /// </summary>
-        private int GetBottomMostEnemy()
+        private Sprite GetBottomMostEnemy()
         {
-            int result = 0;
+            Sprite result = null;
 
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                for (int x = 0; x < enemyGrid.GetLength(0); x++)
-                    if (enemyGrid[x, y] && y > result)
-                        result = y;
+            foreach (var enemy in enemies)
+            {
+                if (result == null || enemy.Position.Y > result.Position.Y)
+                    result = enemy;
+            }
 
             return result;
         }
@@ -550,13 +496,16 @@ namespace SpaceInvaders
         /// <summary>
         /// Get the y index of the bottom-most enemy still alive on the specified column of the grid.
         /// </summary>
-        private int GetBottomMostEnemyInColumn(int x)
+        private Sprite GetBottomMostEnemyInColumn(int columnPositionX)
         {
-            int result = 0;
+            Sprite result = null;
 
-            for (int y = 0; y < enemyGrid.GetLength(1); y++)
-                if (enemyGrid[x, y] && y > result)
-                    result = y;
+            foreach (var enemy in enemies)
+            {
+                if (enemy.Position.X == columnPositionX)
+                    if (result == null || enemy.Position.Y > result.Position.Y)
+                        result = enemy;
+            }
 
             return result;
         }
@@ -580,21 +529,11 @@ namespace SpaceInvaders
 
     static class Ext
     {
-        /// <summary>
-        /// Draws a texture with the origin set to the center of the texture.
-        /// </summary>
-        public static void DrawCentered(this SpriteBatch spriteBatch, Texture2D texture, Vector2 position, Color? color=null)
+        public static void PruneDead(this List<Sprite> list)
         {
-            spriteBatch.Draw(
-                texture,
-                position,
-                null,
-                color ?? Color.White,
-                0f,
-                new Vector2(texture.Width / 2f, texture.Height / 2f),
-                1f,
-                SpriteEffects.None,
-                1f);
+            for (int i = list.Count - 1; i >= 0; i--)
+                if (!list[i].Alive)
+                    list.RemoveAt(i);
         }
     }
 }
