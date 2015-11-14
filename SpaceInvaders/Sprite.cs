@@ -1,9 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace SpaceInvaders
 {
@@ -17,19 +13,15 @@ namespace SpaceInvaders
         {
             get
             {
-                // Textures are rendered with the center of the texture as the origin, so we need to
-                // subtract half of the texture's width and height from the position in order to get
-                // the top-left corner of the bounding box.
+                // We are rendering textures with the center of the texture as the origin, so we need to
+                // subtract half of the texture's width and height from the position in order to get the
+                // top-left corner of the bounding box.
                 return new Rectangle(
                     (int)(Position.X - (Texture.Width / 2f)),
                     (int)(Position.Y - (Texture.Height / 2f)),
                     Texture.Width,
                     Texture.Height);
             }
-        }
-
-        public Sprite()
-        {
         }
 
         public Sprite(Texture2D texture, Vector2 position, bool alive=true)
