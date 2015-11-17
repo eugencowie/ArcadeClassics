@@ -144,8 +144,6 @@ namespace SpaceInvaders
 
             if (!gameOver)
             {
-                CheckGameOver(delta);
-
                 CheckPlayerInput(delta);
 
                 UpdateEnemyGrid(delta);
@@ -164,6 +162,8 @@ namespace SpaceInvaders
                 playerLasers.RemoveAll(laser => !laser.Alive);
                 enemyLasers.RemoveAll(laser => !laser.Alive);
                 barriers.RemoveAll(barrier => !barrier.Alive);
+
+                CheckGameOver(delta);
             }
 
             base.Update(gameTime);
@@ -235,6 +235,7 @@ namespace SpaceInvaders
             {
                 gameOver = true;
                 playerWon = true;
+                return;
             }
 
             // Check if the lowest line of enemies have reached the player.
