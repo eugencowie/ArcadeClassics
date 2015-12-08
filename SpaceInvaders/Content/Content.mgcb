@@ -80,3 +80,9 @@
 /processorParam:TextureFormat=Color
 /build:textures/barrier.png
 
+#begin audio/LaserHit.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:audio/LaserHit.wav
+

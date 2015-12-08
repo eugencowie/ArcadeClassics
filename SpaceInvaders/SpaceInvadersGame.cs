@@ -34,7 +34,7 @@ namespace SpaceInvaders
         // Fonts and sounds
         SpriteFont scoreFont;
         SpriteFont winFont;
-//      SoundEffect laserHitSound;
+        SoundEffect laserHitSound;
 
         // Background
         Texture2D backgroundTexture;
@@ -97,7 +97,7 @@ namespace SpaceInvaders
             // Load the fonts and sound effects.
             scoreFont = Content.Load<SpriteFont>("fonts/ScoreFont");
             winFont = Content.Load<SpriteFont>("fonts/WinFont");
-//          laserHitSound = Content.Load<SoundEffect>("audio/LaserHit");
+            laserHitSound = Content.Load<SoundEffect>("audio/LaserHit");
 
             // Load the background texture.
             backgroundTexture = Content.Load<Texture2D>("textures/background");
@@ -376,6 +376,7 @@ namespace SpaceInvaders
                     enemy.Alive = false;
                     playerLaser.Alive = false;
                     playerScore += 10;
+                    laserHitSound.Play();
                     return;
                 }
             }
