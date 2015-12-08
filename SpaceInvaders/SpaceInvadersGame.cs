@@ -70,9 +70,10 @@ namespace SpaceInvaders
             }
 
             public Barrier(Texture2D texture, Vector2 position, int health)
-                : base(texture, position, (health > 0))
+                : base(texture, position)
             {
                 Health = health;
+                Alive = (health > 0);
             }
         }
         List<Barrier> barriers = new List<Barrier>();

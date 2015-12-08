@@ -32,7 +32,7 @@ namespace SpaceInvaders
             }
         }
 
-        public Sprite(Texture2D texture, Vector2 position, bool alive=true)
+        public Sprite(Texture2D texture, Vector2 position)
         {
             Texture = texture;
             SourceRectangle = null;
@@ -47,7 +47,7 @@ namespace SpaceInvaders
             Effects = SpriteEffects.None;
             Depth = 0.5f;
 
-            Alive = alive;
+            Alive = true;
         }
 
         public void Draw(SpriteBatch spriteBatch)
