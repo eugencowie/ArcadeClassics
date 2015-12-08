@@ -59,7 +59,15 @@ namespace SpaceInvaders
         // Barriers
         class Barrier : Sprite
         {
-            public int Health;
+            private int health;
+            public int Health
+            {
+                get { return health; }
+                set {
+                    Alive = (value > 0);
+                    health = value;
+                }
+            }
 
             public Barrier(Texture2D texture, Vector2 position, int health)
                 : base(texture, position, (health > 0))
@@ -119,7 +127,10 @@ namespace SpaceInvaders
                         x * (enemyTexture.Width + ENEMY_PADDING),
                         y * (enemyTexture.Height + ENEMY_PADDING));
 
-                    enemies.Add(new Sprite(enemyTexture, enemyPosition));
+                    var enemy = new Sprite(enemyTexture, enemyPosition);
+                    enemy.Color = Color.LimeGreen;
+
+                    enemies.Add(enemy);
                 }
             }
 
@@ -186,7 +197,7 @@ namespace SpaceInvaders
 
                 // Draw the enemies.
                 foreach (var enemy in enemies)
-                    enemy.Draw(spriteBatch, Color.LimeGreen);
+                    enemy.Draw(spriteBatch);
 
                 // Draw the player lasers.
                 foreach (var laser in playerLasers)
@@ -204,7 +215,8 @@ namespace SpaceInvaders
                     if (barrier.Health <= 50) color = Color.Orange;
                     if (barrier.Health <= 25) color = Color.Red;
 
-                    barrier.Draw(spriteBatch, color);
+                    barrier.Color = color;
+                    barrier.Draw(spriteBatch);
                 }
 
                 // Draw the player's score.
@@ -425,9 +437,6 @@ namespace SpaceInvaders
                 if (barrier.Bounds.Intersects(enemy.Bounds))
                     barrier.Health = 0;
             }
-
-            if (barrier.Health <= 0)
-                barrier.Alive = false;
         }
 
 
