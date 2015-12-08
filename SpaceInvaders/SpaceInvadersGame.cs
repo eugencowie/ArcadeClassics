@@ -20,7 +20,10 @@ namespace SpaceInvaders
         const int ENEMY_PADDING = 10;
 
         // Time (in seconds) between enemy movements.
-        const int ENEMY_MOVE_INTERVAL = 1;
+        const float ENEMY_MOVE_INTERVAL = 1f;
+
+        // Speed of the superenemy.
+        const float SUPERENEMY_MOVE_SPEED = 50f;
 
         // Time (in seconds) before the player can fire another laser.
         const float PLAYER_LASER_COOLDOWN = 0.5f;
@@ -49,6 +52,9 @@ namespace SpaceInvaders
 
         enum EnemyMovement { Left, Down, Right }
         EnemyMovement nextEnemyMovement = EnemyMovement.Right;
+
+        // Superenemy
+        Sprite superEnemy;
 
         // Lasers
         Texture2D laserTexture;
@@ -136,6 +142,11 @@ namespace SpaceInvaders
                 }
             }
 
+            // Create the superenemy (initially not alive).
+            var superEnemyTexture = Content.Load<Texture2D>("textures/superenemy");
+            superEnemy = new Sprite(superEnemyTexture, Vector2.Zero);
+            superEnemy.Alive = false;
+
             // Load the laser texture to use later when we create lasers.
             laserTexture = Content.Load<Texture2D>("textures/laser");
 
@@ -163,6 +174,8 @@ namespace SpaceInvaders
 
                 // Update enemies.
                 UpdateEnemyGrid(delta);
+
+                UpdateSuperEnemy(delta);
 
                 // Update alive player lasers.
                 foreach (var laser in playerLasers.Where(laser => laser.Alive))
@@ -207,6 +220,8 @@ namespace SpaceInvaders
                 // Draw the enemies.
                 foreach (var enemy in enemies)
                     enemy.Draw(spriteBatch);
+
+                superEnemy.Draw(spriteBatch);
 
                 // Draw the player lasers.
                 foreach (var laser in playerLasers)
@@ -354,6 +369,36 @@ namespace SpaceInvaders
         }
 
 
+        private void UpdateSuperEnemy(float delta)
+        {
+            if (superEnemy.Alive)
+            {
+                superEnemy.Position.X += SUPERENEMY_MOVE_SPEED * delta;
+
+                // Check if the superenemy leaves the screen.
+                if (superEnemy.Bounds.Right > WINDOW_WIDTH)
+                    superEnemy.Alive = false;
+
+                // 3% chance of firing a laser
+                if (rand.Next(100) < 3)
+                {
+                    var laser = new Sprite(laserTexture, superEnemy.Position);
+                    laser.Color = Color.MediumPurple;
+                    enemyLasers.Add(laser);
+                }
+            }
+            else
+            {
+                // 0.5% chance of superenemy spawning
+                if (rand.Next(1000) < 5)
+                {
+                    superEnemy.Position = new Vector2(-40, 20);
+                    superEnemy.Alive = true;
+                }
+            }
+        }
+
+
         private void UpdatePlayerLaser(float delta, Sprite playerLaser)
         {
             // Player lasers move upwards.
@@ -399,6 +444,15 @@ namespace SpaceInvaders
                     laserHitSound.Play();
                     return;
                 }
+            }
+
+            if (superEnemy.Alive && playerLaser.Bounds.Intersects(superEnemy.Bounds))
+            {
+                superEnemy.Alive = false;
+                playerLaser.Alive = false;
+                playerScore += 500;
+                laserHitSound.Play();
+                return;
             }
         }
 
