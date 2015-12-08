@@ -142,10 +142,11 @@ namespace SpaceInvaders
                 }
             }
 
-            // Create the superenemy (initially not alive).
+            // Create the superenemy.
             var superEnemyTexture = Content.Load<Texture2D>("textures/superenemy");
             superEnemy = new Sprite(superEnemyTexture, Vector2.Zero);
-            superEnemy.Alive = false;
+            superEnemy.Position = new Vector2(-40, 20);
+//          superEnemy.Alive = false; // do not spawn the superenemy immediately
 
             // Load the laser texture to use later when we create lasers.
             laserTexture = Content.Load<Texture2D>("textures/laser");
