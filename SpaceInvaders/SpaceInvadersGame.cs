@@ -64,7 +64,7 @@ namespace SpaceInvaders
             {
                 get { return health; }
                 set {
-                    Alive = (value > 0);
+                    Alive = (value > 0); // alive is true if health > 0
                     health = value;
                 }
             }
@@ -119,6 +119,7 @@ namespace SpaceInvaders
             // Create the enemies in a 10x5 grid, offset from the top-left by (50px, 50px).
             var enemyTexture = Content.Load<Texture2D>("textures/enemy");
             var offset = new Vector2(50, 50);
+
             for (int y = 0; y < 5; y++)
             {
                 for (int x = 0; x < 10; x++)
@@ -141,6 +142,7 @@ namespace SpaceInvaders
             var barrierTexture = Content.Load<Texture2D>("textures/barrier");
             const int sidePadding = 100;
             const int barrierInterval = (WINDOW_WIDTH - (sidePadding*2)) / 4;
+
             for (int x = barrierInterval; x <= WINDOW_WIDTH - sidePadding; x += barrierInterval)
                 barriers.Add(new Barrier(barrierTexture, new Vector2(x, 500), 100));
         }
@@ -155,16 +157,21 @@ namespace SpaceInvaders
 
             if (!gameOver)
             {
+                // Check for player input.
                 CheckPlayerInput(delta);
 
+                // Update enemies.
                 UpdateEnemyGrid(delta);
 
+                // Update alive player lasers.
                 foreach (var laser in playerLasers.Where(laser => laser.Alive))
                     UpdatePlayerLaser(delta, laser);
 
+                // Update alive enemy lasers.
                 foreach (var laser in enemyLasers.Where(laser => laser.Alive))
                     UpdateEnemyLaser(delta, laser);
 
+                // Update alive barriers.
                 foreach (var barrier in barriers.Where(barrier => barrier.Alive))
                     UpdateBarrier(delta, barrier);
 
@@ -174,6 +181,7 @@ namespace SpaceInvaders
                 enemyLasers.RemoveAll(laser => !laser.Alive);
                 barriers.RemoveAll(barrier => !barrier.Alive);
 
+                // Check if we have reached a game over condition.
                 CheckGameOver(delta);
             }
 
@@ -247,11 +255,10 @@ namespace SpaceInvaders
             {
                 gameOver = true;
                 playerWon = true;
-                return;
             }
 
             // Check if the lowest line of enemies have reached the player.
-            if (GetBottomMostEnemy().Bounds.Bottom > player.Bounds.Top)
+            else if (GetBottomMostEnemy().Bounds.Bottom > player.Bounds.Top)
                 gameOver = true;
         }
 
@@ -292,7 +299,7 @@ namespace SpaceInvaders
             // Enemies should move once every ENEMY_MOVE_INTERVAL seconds.
             if (timeSinceEnemyMove > ENEMY_MOVE_INTERVAL)
             {
-                // enemy[0] should exist if enemies.Count != 0 (see above).
+                // enemy[0] should exist if enemies.Count != 0 (per if statement above).
                 int moveX = enemies[0].Texture.Width + ENEMY_PADDING;
                 int moveY = enemies[0].Texture.Height + ENEMY_PADDING;
 
