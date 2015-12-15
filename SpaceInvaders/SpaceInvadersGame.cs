@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace SpaceInvaders
@@ -88,6 +89,9 @@ namespace SpaceInvaders
         bool gameOver;
         bool playerWon;
 
+        int highScore;
+        bool newHighScore;
+
         Random rand = new Random();
 
         #endregion
@@ -160,6 +164,14 @@ namespace SpaceInvaders
 
             for (int x = barrierInterval; x <= WINDOW_WIDTH - sidePadding; x += barrierInterval)
                 barriers.Add(new Barrier(barrierTexture, new Vector2(x, 500), 100));
+
+            // Load the current high score.
+            if (File.Exists("highscore.txt"))
+            {
+                string text = File.ReadAllText("highscore.txt");
+                try { int.TryParse(text, out highScore); }
+                catch { highScore = 0; }
+            }
         }
 
 
@@ -246,8 +258,9 @@ namespace SpaceInvaders
                     barrier.Draw(spriteBatch);
                 }
 
-                // Draw the player's score.
+                // Draw the player's score and the high score.
                 spriteBatch.DrawString(scoreFont, "Score: " + playerScore, new Vector2(20, 20), Color.White);
+                spriteBatch.DrawString(scoreFont, "High score: " + highScore, new Vector2(WINDOW_WIDTH - 110, 20), Color.White);
             }
             else
             {
@@ -256,6 +269,9 @@ namespace SpaceInvaders
 
                 string text = (playerWon ? "You won the game!" : "You died :(");
                 spriteBatch.DrawString(winFont, text, new Vector2(20, 60), Color.White);
+
+                if (newHighScore)
+                    spriteBatch.DrawString(winFont, "New high score!", new Vector2(20, 100), Color.White);
             }
 
             spriteBatch.End();
@@ -274,11 +290,25 @@ namespace SpaceInvaders
             {
                 gameOver = true;
                 playerWon = true;
+                UpdateHighScore();
             }
 
             // Check if the lowest line of enemies have reached the player.
             else if (GetBottomMostEnemy().Bounds.Bottom > player.Bounds.Top)
+            {
                 gameOver = true;
+                UpdateHighScore();
+            }
+        }
+
+
+        private void UpdateHighScore()
+        {
+            if (playerScore > highScore)
+            {
+                File.WriteAllText("highscore.txt", playerScore.ToString());
+                newHighScore = true;
+            }
         }
 
 
@@ -482,6 +512,7 @@ namespace SpaceInvaders
                 enemyLaser.Alive = false;
                 player.Alive = false;
                 gameOver = true;
+                UpdateHighScore();
                 return;
             }
 
