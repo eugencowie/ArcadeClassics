@@ -146,7 +146,9 @@ namespace SpaceInvaders
             var superEnemyTexture = Content.Load<Texture2D>("textures/superenemy");
             superEnemy = new Sprite(superEnemyTexture, Vector2.Zero);
             superEnemy.Position = new Vector2(-40, 20);
-//          superEnemy.Alive = false; // do not spawn the superenemy immediately
+#if !DEBUG
+            superEnemy.Alive = false; // do not spawn the superenemy immediately in release builds
+#endif
 
             // Load the laser texture to use later when we create lasers.
             laserTexture = Content.Load<Texture2D>("textures/laser");

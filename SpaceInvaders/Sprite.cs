@@ -24,11 +24,12 @@ namespace SpaceInvaders
         {
             get
             {
-                return new Rectangle(
-                    (int)(Position.X - Origin.X),
-                    (int)(Position.Y - Origin.Y),
-                    Texture.Width,
-                    Texture.Height);
+                return new Rectangle {
+                    X = (int)(Position.X - Origin.X),
+                    Y = (int)(Position.Y - Origin.Y),
+                    Width  = (int)(Texture.Width  * (Scale.X * UniformScale)),
+                    Height = (int)(Texture.Height * (Scale.Y * UniformScale))
+                };
             }
         }
 
