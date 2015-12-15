@@ -45,6 +45,7 @@ namespace SpaceInvaders
 
         // Player
         Sprite player;
+        int playerLives;
         int playerScore;
 
         // Enemies
@@ -86,6 +87,7 @@ namespace SpaceInvaders
         List<Barrier> barriers = new List<Barrier>();
 
         // Game over
+        bool resetLevel;
         bool gameOver;
         bool playerWon;
 
@@ -126,6 +128,7 @@ namespace SpaceInvaders
             var playerPosition = new Vector2(WINDOW_WIDTH / 2f, WINDOW_HEIGHT - 40);
 
             player = new Sprite(playerTexture, playerPosition);
+            playerLives = 3;
 
             // Create the enemies in a 10x5 grid, offset from the top-left by (50px, 50px).
             var enemyTexture = Content.Load<Texture2D>("textures/enemy");
@@ -181,6 +184,12 @@ namespace SpaceInvaders
 
             if (Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
+
+            if (resetLevel)
+            {
+                ResetLevel();
+                resetLevel = false;
+            }
 
             if (!gameOver)
             {
@@ -258,9 +267,10 @@ namespace SpaceInvaders
                     barrier.Draw(spriteBatch);
                 }
 
-                // Draw the player's score and the high score.
+                // Draw the player's lives, score and the high score.
+                spriteBatch.DrawStringCentered(scoreFont, "Lives: " + playerLives, new Vector2(WINDOW_WIDTH/2f, 20), Color.White);
                 spriteBatch.DrawString(scoreFont, "Score: " + playerScore, new Vector2(20, 20), Color.White);
-                spriteBatch.DrawString(scoreFont, "High score: " + highScore, new Vector2(WINDOW_WIDTH - 110, 20), Color.White);
+                spriteBatch.DrawString(scoreFont, "High score: " + highScore, new Vector2(WINDOW_WIDTH - 130, 20), Color.White);
             }
             else
             {
@@ -281,6 +291,36 @@ namespace SpaceInvaders
 
 
         #region Update functions
+
+
+        private void ResetLevel()
+        {
+            playerLasers.Clear();
+            enemyLasers.Clear();
+
+            superEnemy.Position = new Vector2(-40, 20);
+            superEnemy.Alive = false;
+
+            enemies.Clear();
+            nextEnemyMovement = EnemyMovement.Right;
+
+            var enemyTexture = Content.Load<Texture2D>("textures/enemy");
+            var offset = new Vector2(50, 50);
+            for (int y = 0; y < 5; y++)
+            {
+                for (int x = 0; x < 10; x++)
+                {
+                    var enemyPosition = offset + new Vector2(
+                        x * (enemyTexture.Width + ENEMY_PADDING),
+                        y * (enemyTexture.Height + ENEMY_PADDING));
+
+                    var enemy = new Sprite(enemyTexture, enemyPosition);
+                    enemy.Color = Color.LimeGreen;
+
+                    enemies.Add(enemy);
+                }
+            }
+        }
 
 
         private void CheckGameOver(float delta)
@@ -510,9 +550,17 @@ namespace SpaceInvaders
             if (enemyLaser.Bounds.Intersects(player.Bounds))
             {
                 enemyLaser.Alive = false;
-                player.Alive = false;
-                gameOver = true;
-                UpdateHighScore();
+                playerLives--;
+
+                if (playerLives > 0)
+                    resetLevel = true;
+                else
+                {
+                    player.Alive = false;
+                    gameOver = true;
+                    UpdateHighScore();
+                }
+
                 return;
             }
 
@@ -610,6 +658,16 @@ namespace SpaceInvaders
             return result;
         }
 
+
         #endregion
+    }
+
+    static class Ext
+    {
+        public static void DrawStringCentered(this SpriteBatch spriteBatch, SpriteFont font, string text, Vector2 position, Color color)
+        {
+            var absolutePosition = position - new Vector2(font.MeasureString(text).X / 2f, 0);
+            spriteBatch.DrawString(font, text, absolutePosition, color);
+        }
     }
 }
